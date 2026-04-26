@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>F.R - User Input Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        #exchange-rate-bar { 
+            padding: 12px 20px; 
+            background-color: #f8f9fa; 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            border: 1px solid #dee2e6;
+        }
+        #jpy-myr-rate { font-weight: bold; color: #007bff; }
+        .container { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        .user-section { flex: 1; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        .user-a { border-left: 4px solid #007bff; }
+        .user-b { border-left: 4px solid #28a745; }
+        .total-display { font-size: 1.2em; margin-bottom: 15px; padding: 10px; background-color: #f0f0f0; border-radius: 4px; }
+        .total-display.small { font-size: 0.9em; margin-top: 5px; }
+        .input-form { margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .input-form input { padding: 8px; font-size: 1em; }
+        .input-form button { padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        .input-form button:hover { background-color: #0056b3; }
+        .user-b .input-form button { background-color: #28a745; }
+        .user-b .input-form button:hover { background-color: #1e7e34; }
+        .records { 
+            max-height: 60vh; 
+            overflow-y: auto; 
+            margin-top: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        .record-line { 
+            padding: 12px; 
+            margin-bottom: 8px; 
+            border-bottom: 1px solid #eee; 
+            display: grid; 
+            grid-template-columns: 1.5fr 1fr 2fr 1.2fr 0.3fr; 
+            gap: 10px; 
+            align-items: center; 
+        }
+        .rec-date { font-size: 0.9em; color: #666; }
+        .rec-value { font-weight: bold; }
+        .rec-comment { font-style: italic; color: #333; }
+        .rec-accumulated { font-weight: bold; }
+        .user-a .rec-accumulated { color: #007bff; }
+        .user-b .rec-accumulated { color: #28a745; }
+        .editable-field { cursor: pointer; }
+        .editable-field:hover { background-color: #f0f0f0; border-radius: 3px; }
+        .edit-input { padding: 2px; font-size: inherit; border: 1px solid #007bff; border-radius: 3px; width: 100%; box-sizing: border-box; }
+        .rec-actions button { font-size: 0.8em; padding: 4px 8px; cursor: pointer; border: none; border-radius: 3px; }
+        h2 { margin-top: 0; color: #333; cursor: pointer; }
+        h2:hover { text-decoration: underline; }
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .record-line { grid-template-columns: 1fr; gap: 5px; }
+            #exchange-rate-bar { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>F.R User Input Tracker</h1>
+    
+    <!-- Exchange Rate Bar -->
+    <div id='exchange-rate-bar'>
+        <div>JPY to MYR Exchange Rate: <span id='jpy-myr-rate'>Loading...</span></div>
+        <button onclick='fetchExchangeRate()' style='padding: 6px 12px; cursor: pointer; border: 1px solid #007bff; background-color: white; color: #007bff; border-radius: 4px;'>Refresh Rate</button>
+    </div>
+
+    <div class='container'>
+        <!-- User A Section (Left, JPY) -->
+        <div class='user-section user-a'>
+            <h2 id='a-title' onclick='editTitle("A")'>User A (Japanese Yen - JPY)</h2>
+            <div class='total-display'>
+                Current Accumulated Total: <span id='a-total'>0.00</span> JPY
+            </div>
+            <div class='total-display small'>
+                Accumulated in MYR: <span id='a-total-myr'>0.00</span> MYR
+            </div>
+            <div class='input-form'>
+                <input type='number' id='a-value' step='any' placeholder='Enter value (JPY)'>
+                <input type='text' id='a-comment' placeholder='Enter comment (optional)'>
+                <button onclick='submitRecord("A")'>Submit User A Record</button>
+            </div>
+            <h3>Input History</h3>
+            <div class='records' id='a-records'>
+                <p>No records yet.</p>
+            </div>
+        </div>
+
+        <!-- User B Section (Right, MYR) -->
+        <div class='user-section user-b'>
+            <h2 id='b-title' onclick='editTitle("B")'>User B (Malaysian Ringgit - MYR)</h2>
+            <div class='total-display'>
+                Current Accumulated Total: <span id='b-total'>0.00</span> MYR
+            </div>
+            <div class='total-display small'>
+                Accumulated in JPY: <span id='b-total-jpy'>0.00</span> JPY
+            </div>
+            <div class='input-form'>
+                <input type='number' id='b-value' step='any' placeholder='Enter value (MYR)'>
+                <input type='text' id='b-comment' placeholder='Enter comment (optional)'>
+                <button onclick='submitRecord("B")'>Submit User B Record</button>
+            </div>
+            <h3>Input History</h3>
+            <div class='records' id='b-records'>
+                <p>No records yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data storage
+        let userARecords = [];
+        let userBRecords = [];
+        let userATitle = 'User A (Japanese Yen - JPY)';
+        let userBTitle = 'User B (Malaysian Ringgit - MYR)';
+        let jpyToMyrRate = 0; // Global exchange rate variable
+        const STORAGE_KEY_A = 'fr_user_a_records';
+        const STORAGE_KEY_B = 'fr_user_b_records';
+        const STORAGE_KEY_A_TITLE = 'fr_user_a_title';
+        const STORAGE_KEY_B_TITLE = 'fr_user_b_title';
+
+        // Load all data from localStorage
+        window.onload = function() {
+            loadAllData();
+            renderTitles();
+            renderAllRecords();
+            updateTotals();
+            fetchExchangeRate();
+        };
+
+        function loadAllData() {
+            // Load titles
+            const aTitleStored = localStorage.getItem(STORAGE_KEY_A_TITLE);
+            if (aTitleStored) userATitle = aTitleStored;
+            const bTitleStored = localStorage.getItem(STORAGE_KEY_B_TITLE);
+            if (bTitleStored) userBTitle = bTitleStored;
+
+            // Load records
+            const aStored = localStorage.getItem(STORAGE_KEY_A);
+            userARecords = aStored ? JSON.parse(aStored) : [];
+            const bStored = localStorage.getItem(STORAGE_KEY_B);
+            userBRecords = bStored ? JSON.parse(bStored) : [];
+        }
+
+        function saveRecords(user) {
+            if (user === 'A') {
+                localStorage.setItem(STORAGE_KEY_A, JSON.stringify(userARecords));
+            } else {
+                localStorage.setItem(STORAGE_KEY_B, JSON.stringify(userBRecords));
+            }
+        }
+
+        function saveTitle(user) {
+            if (user === 'A') {
+                localStorage.setItem(STORAGE_KEY_A_TITLE, userATitle);
+            } else {
+                localStorage.setItem(STORAGE_KEY_B_TITLE, userBTitle);
+            }
+        }
+
+        function renderTitles() {
+            document.getElementById('a-title').textContent = userATitle;
+            document.getElementById('b-title').textContent = userBTitle;
+        }
+
+        function editTitle(user) {
+            const currentTitle = user === 'A' ? userATitle : userBTitle;
+            const newTitle = prompt(`Edit ${user === 'A' ? 'User A' : 'User B'} section title:`, currentTitle);
+            if (newTitle === null || newTitle.trim() === '') return;
+            if (user === 'A') {
+                userATitle = newTitle.trim();
+            } else {
+                userBTitle = newTitle.trim();
+            }
+            saveTitle(user);
+            renderTitles();
+        }
+
+        // Exchange rate fetching
+        async function fetchExchangeRate() {
+            const rateElement = document.getElementById('jpy-myr-rate');
+            rateElement.textContent = 'Loading...';
+            try {
+                const response = await fetch('https://open.er-api.com/v6/latest/JPY');
+                const data = await response.json();
+                if (data.result === 'success') {
+                    jpyToMyrRate = data.rates.MYR;
+                    const lastUpdated = new Date(data.time_last_update_utc).toLocaleString();
+                    rateElement.textContent = `1 JPY = ${jpyToMyrRate.toFixed(4)} MYR (Last Updated: ${lastUpdated})`;
+                    updateConvertedTotals(); // Update converted totals when rate changes
+                } else {
+                    rateElement.textContent = 'Failed to load exchange rate';
+                }
+            } catch (error) {
+                rateElement.textContent = 'Error loading exchange rate';
+                console.error('Exchange rate fetch error:', error);
+            }
+        }
+
+        // Update converted totals for both users
+        function updateConvertedTotals() {
+            // User A: JPY total -> MYR
+            const aTotalJpy = userARecords.reduce((sum, r) => sum + r.value, 0);
+            const aTotalMyr = jpyToMyrRate > 0 ? (aTotalJpy * jpyToMyrRate).toFixed(2) : '0.00';
+            document.getElementById('a-total-myr').textContent = aTotalMyr;
+
+            // User B: MYR total -> JPY
+            const bTotalMyr = userBRecords.reduce((sum, r) => sum + r.value, 0);
+            const bTotalJpy = jpyToMyrRate > 0 ? (bTotalMyr / jpyToMyrRate).toFixed(2) : '0.00';
+            document.getElementById('b-total-jpy').textContent = bTotalJpy;
+        }
+
+        // Submit new record
+        function submitRecord(user) {
+            const valueId = user === 'A' ? 'a-value' : 'b-value';
+            const commentId = user === 'A' ? 'a-comment' : 'b-comment';
+            const valueInput = document.getElementById(valueId);
+            const commentInput = document.getElementById(commentId);
+            
+            const value = parseFloat(valueInput.value);
+            const comment = commentInput.value.trim();
+
+            if (isNaN(value)) {
+                alert('Please enter a valid number for the value.');
+                return;
+            }
+
+            const now = new Date();
+            const record = {
+                id: now.getTime(),
+                date: now.toLocaleString(),
+                isoDate: now.toISOString(),
+                value: value,
+                comment: comment
+            };
+
+            if (user === 'A') {
+                userARecords.push(record);
+                saveRecords('A');
+                renderRecords('A');
+            } else {
+                userBRecords.push(record);
+                saveRecords('B');
+                renderRecords('B');
+            }
+
+            updateTotals();
+            // Clear inputs
+            valueInput.value = '';
+            commentInput.value = '';
+        }
+
+        // Render records for a user
+        function renderRecords(user) {
+            const containerId = user === 'A' ? 'a-records' : 'b-records';
+            const container = document.getElementById(containerId);
+            const records = user === 'A' ? userARecords : userBRecords;
+            const currency = user === 'A' ? 'JPY' : 'MYR';
+
+            container.innerHTML = '';
+
+            if (records.length === 0) {
+                container.innerHTML = '<p>No records yet.</p>';
+                return;
+            }
+
+            // Sort records ascending by isoDate (oldest first) to calculate accumulated
+            const sortedAsc = [...records].sort((a, b) => new Date(a.isoDate) - new Date(b.isoDate));
+            let runningTotal = 0;
+            const recordsWithAccumulated = sortedAsc.map(rec => {
+                runningTotal += rec.value;
+                return { ...rec, accumulated: runningTotal };
+            });
+
+            // Reverse to display newest first
+            const displayRecords = recordsWithAccumulated.reverse();
+
+            displayRecords.forEach(rec => {
+                const recDiv = document.createElement('div');
+                recDiv.className = 'record-line';
+                recDiv.setAttribute('data-record-id', rec.id);
+
+                // Date field (editable, click to show datetime picker)
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'rec-date editable-field';
+                dateDiv.setAttribute('data-record-id', rec.id);
+                dateDiv.setAttribute('data-field-type', 'date');
+                dateDiv.textContent = rec.date;
+                dateDiv.onclick = () => startEditField(user, rec.id, 'date', dateDiv);
+
+                // Value field (editable, click to show number input)
+                const valueDiv = document.createElement('div');
+                valueDiv.className = 'rec-value editable-field';
+                valueDiv.setAttribute('data-record-id', rec.id);
+                valueDiv.setAttribute('data-field-type', 'value');
+                valueDiv.textContent = `${rec.value.toFixed(2)} ${currency}`;
+                valueDiv.onclick = () => startEditField(user, rec.id, 'value', valueDiv);
+
+                // Comment field (editable, click to show text input)
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'rec-comment editable-field';
+                commentDiv.setAttribute('data-record-id', rec.id);
+                commentDiv.setAttribute('data-field-type', 'comment');
+                commentDiv.textContent = rec.comment || 'No comment';
+                commentDiv.onclick = () => startEditField(user, rec.id, 'comment', commentDiv);
+
+                // Accumulated field (not editable)
+                const accumulatedDiv = document.createElement('div');
+                accumulatedDiv.className = 'rec-accumulated';
+                accumulatedDiv.textContent = `Accumulated: ${rec.accumulated.toFixed(2)} ${currency}`;
+
+                // Delete button only (no Edit button)
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'rec-actions';
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.style.backgroundColor = '#dc3545';
+                deleteBtn.style.color = 'white';
+                deleteBtn.onclick = () => deleteRecord(user, rec.id);
+                actionsDiv.appendChild(deleteBtn);
+
+                // Append all fields to record line
+                recDiv.appendChild(dateDiv);
+                recDiv.appendChild(valueDiv);
+                recDiv.appendChild(commentDiv);
+                recDiv.appendChild(accumulatedDiv);
+                recDiv.appendChild(actionsDiv);
+
+                container.appendChild(recDiv);
+            });
+        }
+
+        // Start inline editing for a record field
+        function startEditField(user, recordId, fieldType, element) {
+            const records = user === 'A' ? userARecords : userBRecords;
+            const recordIndex = records.findIndex(r => r.id === recordId);
+            if (recordIndex === -1) return;
+            const rec = records[recordIndex];
+
+            let input;
+            if (fieldType === 'date') {
+                // Datetime-local input for date editing
+                input = document.createElement('input');
+                input.type = 'datetime-local';
+                input.className = 'edit-input';
+                input.value = rec.isoDate.slice(0, 16); // Format for datetime-local
+                input.onchange = () => saveEditedField(user, recordId, fieldType, input.value);
+                input.onblur = () => saveEditedField(user, recordId, fieldType, input.value);
+            } else if (fieldType === 'value') {
+                // Number input for value editing
+                input = document.createElement('input');
+                input.type = 'number';
+                input.className = 'edit-input';
+                input.step = 'any';
+                input.value = rec.value;
+                input.onchange = () => saveEditedField(user, recordId, fieldType, input.value);
+                input.onblur = () => saveEditedField(user, recordId, fieldType, input.value);
+            } else if (fieldType === 'comment') {
+                // Text input for comment editing
+                input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'edit-input';
+                input.value = rec.comment || '';
+                input.onchange = () => saveEditedField(user, recordId, fieldType, input.value);
+                input.onblur = () => saveEditedField(user, recordId, fieldType, input.value);
+            }
+
+            // Replace the static element with the input
+            element.parentNode.replaceChild(input, element);
+            input.focus();
+        }
+
+        // Save edited field value
+        function saveEditedField(user, recordId, fieldType, newValue) {
+            const records = user === 'A' ? userARecords : userBRecords;
+            const recordIndex = records.findIndex(r => r.id === recordId);
+            if (recordIndex === -1) return;
+            const rec = records[recordIndex];
+
+            if (fieldType === 'date') {
+                const newDate = new Date(newValue);
+                if (isNaN(newDate.getTime())) {
+                    alert('Invalid date, no changes made.');
+                    renderRecords(user);
+                    return;
+                }
+                rec.isoDate = newDate.toISOString();
+                rec.date = newDate.toLocaleString();
+            } else if (fieldType === 'value') {
+                const newVal = parseFloat(newValue);
+                if (isNaN(newVal)) {
+                    alert('Invalid value, no changes made.');
+                    renderRecords(user);
+                    return;
+                }
+                rec.value = newVal;
+            } else if (fieldType === 'comment') {
+                rec.comment = newValue.trim();
+            }
+
+            // Save and re-render
+            saveRecords(user);
+            renderRecords(user);
+            updateTotals();
+        }
+
+        function renderAllRecords() {
+            renderRecords('A');
+            renderRecords('B');
+        }
+
+        function deleteRecord(user, recordId) {
+            if (!confirm('Are you sure you want to delete this record? This action cannot be undone.')) return;
+            if (user === 'A') {
+                userARecords = userARecords.filter(r => r.id !== recordId);
+                saveRecords('A');
+                renderRecords('A');
+            } else {
+                userBRecords = userBRecords.filter(r => r.id !== recordId);
+                saveRecords('B');
+                renderRecords('B');
+            }
+            updateTotals();
+        }
+
+        // Update total display and converted totals
+        function updateTotals() {
+            const aTotal = userARecords.reduce((sum, r) => sum + r.value, 0);
+            document.getElementById('a-total').textContent = aTotal.toFixed(2);
+            const bTotal = userBRecords.reduce((sum, r) => sum + r.value, 0);
+            document.getElementById('b-total').textContent = bTotal.toFixed(2);
+            updateConvertedTotals(); // Update converted totals whenever main totals change
+        }
+    </script>
+</body>
+</html>
