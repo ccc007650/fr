@@ -1,445 +1,802 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang="en">
 <head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>F.R - User Input Tracker</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Input Tracker v2 (Undraggable)</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        #exchange-rate-bar { 
-            padding: 12px 20px; 
-            background-color: #f8f9fa; 
-            border-radius: 8px; 
-            margin-bottom: 20px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            border: 1px solid #dee2e6;
-        }
-        #jpy-myr-rate { font-weight: bold; color: #007bff; }
-        .container { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; }
-        .user-section { flex: 1; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-        .user-a { border-left: 4px solid #007bff; }
-        .user-b { border-left: 4px solid #28a745; }
-        .total-display { font-size: 1.2em; margin-bottom: 15px; padding: 10px; background-color: #f0f0f0; border-radius: 4px; }
-        .total-display.small { font-size: 0.9em; margin-top: 5px; }
-        .input-form { margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .input-form input { padding: 8px; font-size: 1em; }
-        .input-form button { padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
-        .input-form button:hover { background-color: #0056b3; }
-        .user-b .input-form button { background-color: #28a745; }
-        .user-b .input-form button:hover { background-color: #1e7e34; }
-        .records { 
-            max-height: 60vh; 
-            overflow-y: auto; 
-            margin-top: 10px;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            padding: 5px;
-        }
-        .record-line { 
-            padding: 12px; 
-            margin-bottom: 8px; 
-            border-bottom: 1px solid #eee; 
-            display: grid; 
-            grid-template-columns: 1.5fr 1fr 2fr 1.2fr 0.3fr; 
-            gap: 10px; 
-            align-items: center; 
-        }
-        .rec-date { font-size: 0.9em; color: #666; }
-        .rec-value { font-weight: bold; }
-        .rec-comment { font-style: italic; color: #333; }
-        .rec-accumulated { font-weight: bold; }
-        .user-a .rec-accumulated { color: #007bff; }
-        .user-b .rec-accumulated { color: #28a745; }
-        .editable-field { cursor: pointer; }
-        .editable-field:hover { background-color: #f0f0f0; border-radius: 3px; }
-        .edit-input { padding: 2px; font-size: inherit; border: 1px solid #007bff; border-radius: 3px; width: 100%; box-sizing: border-box; }
-        .rec-actions button { font-size: 0.8em; padding: 4px 8px; cursor: pointer; border: none; border-radius: 3px; }
-        h2 { margin-top: 0; color: #333; cursor: pointer; }
-        h2:hover { text-decoration: underline; }
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .input-section { margin-bottom: 30px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; position: relative; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="number"] { padding: 8px; width: 200px; }
+        button { padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .history-section { margin-bottom: 30px; }
+        .history-bar { padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #007bff; background-color: #e9f5ff; position: relative; }
+        .history-bar .remark { font-style: italic; color: #333; margin-left: 10px; cursor: pointer; text-decoration: underline; }
+        .history-bar .remark-empty { color: #999; font-style: italic; cursor: pointer; margin-left: 10px; }
+        .chart-section { max-width: 800px; margin: 0 auto 40px; position: relative; overflow: hidden; }
+        .chart-container { position: relative; }
+        .chart-controls { margin-bottom: 15px; }
+        .chart-controls button { margin-right: 8px; padding: 6px 12px; font-size: 0.9em; }
+        .chart-controls .monthly-btn { background-color: #28a745; }
+        .chart-controls .monthly-btn:hover { background-color: #1e7e34; }
+        .chart-controls .yearly-btn { background-color: #6f42c1; }
+        .chart-controls .yearly-btn:hover { background-color: #5a32a8; }
+        .chart-controls .daily-btn { background-color: #007bff; }
+        .chart-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 15px; cursor: pointer; z-index: 10; font-size: 18px; }
+        .chart-nav:hover { background: rgba(0,0,0,0.7); }
+        .chart-nav.left { left: 10px; }
+        .chart-nav.right { right: 10px; }
+        h2 { color: #333; }
+        .input-title { cursor: pointer; }
+        .input-title-edit { font-size: 0.8em; margin-left: 10px; }
+        .add-input-btn { margin-bottom: 20px; background-color: #28a745; }
+
+        .excel-controls button { background-color: #217346; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+        .excel-controls button:hover { background-color: #1a5c38; }
+        .excel-controls input[type="file"] { display: none; }
+
+        .add-input-btn:hover { background-color: #1e7e34; }
+        .history-bar button { margin-left: 10px; padding: 4px 8px; font-size: 0.8em; cursor: pointer; }
+        .history-bar .delete-btn { background-color: #dc3545; color: white; border: none; border-radius: 3px; }
+        .editable-datetime { cursor: pointer; text-decoration: underline; color: #007bff; }
+        .datetime-picker { margin: 0 5px; }
+        .editable-value { cursor: pointer; text-decoration: underline; color: #007bff; }
+        .jump-btn { background-color: #ff9800; color: white; border: none; border-radius: 3px; padding: 6px 12px; font-size: 0.9em; margin-left: 8px; }
+        .jump-btn:hover { background-color: #e68900; }
+        .jump-picker { margin-left: 8px; }
         @media (max-width: 768px) {
-            .container { flex-direction: column; }
-            .record-line { grid-template-columns: 1fr; gap: 5px; }
-            #exchange-rate-bar { flex-direction: column; gap: 10px; }
+            body { padding: 10px; }
+            input[type="number"] { width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+            button { width: 100%; padding: 12px; margin-bottom: 10px; }
+            .add-input-btn { width: 100%; }
+            .input-section { margin-bottom: 20px; }
+            .chart-section { max-width: 100%; margin: 0 0 30px 0; }
+            .history-bar { padding: 10px; font-size: 0.95em; }
+            #input-sections, #charts-container, #history-list { width: 100%; }
+            .chart-controls button { width: auto; margin-bottom: 5px; }
+            .chart-nav { display: none; }
         }
     </style>
 </head>
 <body>
-    <h1>F.R User Input Tracker</h1>
+    <h1 id="main-title" onclick="editMainTitle()" style="cursor:pointer;">Daily Input Tracker v2 (Undraggable)</h1>
     
-    <!-- Exchange Rate Bar -->
-    <div id='exchange-rate-bar'>
-        <div>JPY to MYR Exchange Rate: <span id='jpy-myr-rate'>Loading...</span></div>
-        <button onclick='fetchExchangeRate()' style='padding: 6px 12px; cursor: pointer; border: 1px solid #007bff; background-color: white; color: #007bff; border-radius: 4px;'>Refresh Rate</button>
+    <div class="excel-controls" style="margin-bottom: 20px;">
+        <button onclick="exportToExcel()" style="background-color: #217346; margin-right: 10px;">Export to Excel</button>
+        <button onclick="document.getElementById('excel-file-input').click()" style="background-color: #217346;">Import from Excel</button>
+        <input type="file" id="excel-file-input" style="display: none;" accept=".xlsx, .xls" onchange="importFromExcel(this)">
     </div>
-
-    <div class='container'>
-        <!-- User A Section (Left, JPY) -->
-        <div class='user-section user-a'>
-            <h2 id='a-title' onclick='editTitle("A")'>User A (Japanese Yen - JPY)</h2>
-            <div class='total-display'>
-                Current Accumulated Total: <span id='a-total'>0.00</span> JPY
-            </div>
-            <div class='total-display small'>
-                Accumulated in MYR: <span id='a-total-myr'>0.00</span> MYR
-            </div>
-            <div class='input-form'>
-                <input type='number' id='a-value' step='any' placeholder='Enter value (JPY)'>
-                <input type='text' id='a-comment' placeholder='Enter comment (optional)'>
-                <button onclick='submitRecord("A")'>Submit User A Record</button>
-            </div>
-            <h3>Input History</h3>
-            <div class='records' id='a-records'>
-                <p>No records yet.</p>
-            </div>
-        </div>
-
-        <!-- User B Section (Right, MYR) -->
-        <div class='user-section user-b'>
-            <h2 id='b-title' onclick='editTitle("B")'>User B (Malaysian Ringgit - MYR)</h2>
-            <div class='total-display'>
-                Current Accumulated Total: <span id='b-total'>0.00</span> MYR
-            </div>
-            <div class='total-display small'>
-                Accumulated in JPY: <span id='b-total-jpy'>0.00</span> JPY
-            </div>
-            <div class='input-form'>
-                <input type='number' id='b-value' step='any' placeholder='Enter value (MYR)'>
-                <input type='text' id='b-comment' placeholder='Enter comment (optional)'>
-                <button onclick='submitRecord("B")'>Submit User B Record</button>
-            </div>
-            <h3>Input History</h3>
-            <div class='records' id='b-records'>
-                <p>No records yet.</p>
-            </div>
-        </div>
+    <button class="add-input-btn" onclick="addInput()">Add New Input</button>
+    <div id="input-sections"></div>
+    <div id="charts-container"></div>
+    <div class="history-section">
+        <h2>Input History (Bars)</h2>
+        <div id="history-list"></div>
     </div>
 
     <script>
-        // Data storage
-        let userARecords = [];
-        let userBRecords = [];
-        let userATitle = 'User A (Japanese Yen - JPY)';
-        let userBTitle = 'User B (Malaysian Ringgit - MYR)';
-        let jpyToMyrRate = 0; // Global exchange rate variable
-        const STORAGE_KEY_A = 'fr_user_a_records';
-        const STORAGE_KEY_B = 'fr_user_b_records';
-        const STORAGE_KEY_A_TITLE = 'fr_user_a_title';
-        const STORAGE_KEY_B_TITLE = 'fr_user_b_title';
+        let records = [];
+        let inputDefs = [];
+        const RECORDS_KEY = "daily_input_tracker_records";
+        const INPUTS_KEY = "daily_input_tracker_inputs";
+        let charts = {};
+        const COLOR_PALETTE = [
+            '#007bff', '#6f42c1', '#28a745', '#dc3545', '#fd7e14',
+            '#17a2b8', '#6610f2', '#e83e8c', '#20c997', '#ffc107'
+        ];
+        let mainTitle = "Daily Input Tracker v2 (Undraggable)";
+        const MAIN_TITLE_KEY = "daily_input_tracker_main_title";
+        let chartViews = {};
+        let chartOffsets = {};
+        const VISIBLE_DAILY = 31;
+        const VISIBLE_MONTHLY = 12;
+        const VISIBLE_YEARLY = 10;
 
-        // Load all data from localStorage
-        window.onload = function() {
-            loadAllData();
-            renderTitles();
-            renderAllRecords();
-            updateTotals();
-            fetchExchangeRate();
-        };
-
-        function loadAllData() {
-            // Load titles
-            const aTitleStored = localStorage.getItem(STORAGE_KEY_A_TITLE);
-            if (aTitleStored) userATitle = aTitleStored;
-            const bTitleStored = localStorage.getItem(STORAGE_KEY_B_TITLE);
-            if (bTitleStored) userBTitle = bTitleStored;
-
-            // Load records
-            const aStored = localStorage.getItem(STORAGE_KEY_A);
-            userARecords = aStored ? JSON.parse(aStored) : [];
-            const bStored = localStorage.getItem(STORAGE_KEY_B);
-            userBRecords = bStored ? JSON.parse(bStored) : [];
+        // Main title functions
+        function loadMainTitle() {
+            const stored = localStorage.getItem(MAIN_TITLE_KEY);
+            if (stored) mainTitle = stored;
+            const titleElem = document.getElementById('main-title');
+            if (titleElem) titleElem.textContent = mainTitle;
         }
-
-        function saveRecords(user) {
-            if (user === 'A') {
-                localStorage.setItem(STORAGE_KEY_A, JSON.stringify(userARecords));
-            } else {
-                localStorage.setItem(STORAGE_KEY_B, JSON.stringify(userBRecords));
-            }
-        }
-
-        function saveTitle(user) {
-            if (user === 'A') {
-                localStorage.setItem(STORAGE_KEY_A_TITLE, userATitle);
-            } else {
-                localStorage.setItem(STORAGE_KEY_B_TITLE, userBTitle);
-            }
-        }
-
-        function renderTitles() {
-            document.getElementById('a-title').textContent = userATitle;
-            document.getElementById('b-title').textContent = userBTitle;
-        }
-
-        function editTitle(user) {
-            const currentTitle = user === 'A' ? userATitle : userBTitle;
-            const newTitle = prompt(`Edit ${user === 'A' ? 'User A' : 'User B'} section title:`, currentTitle);
+        function saveMainTitle() { localStorage.setItem(MAIN_TITLE_KEY, mainTitle); }
+        function editMainTitle() {
+            const newTitle = prompt('Edit page title:', mainTitle);
             if (newTitle === null || newTitle.trim() === '') return;
-            if (user === 'A') {
-                userATitle = newTitle.trim();
-            } else {
-                userBTitle = newTitle.trim();
-            }
-            saveTitle(user);
-            renderTitles();
+            mainTitle = newTitle.trim();
+            saveMainTitle();
+            loadMainTitle();
         }
 
-        // Exchange rate fetching
-        async function fetchExchangeRate() {
-            const rateElement = document.getElementById('jpy-myr-rate');
-            rateElement.textContent = 'Loading...';
+        // Utility functions
+        function getLocalDateString(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        function generateInputId() {
+            if (inputDefs.length === 0) return 1;
+            return Math.max(...inputDefs.map(i => i.id)) + 1;
+        }
+        function getColorForIndex(index) { return COLOR_PALETTE[index % COLOR_PALETTE.length]; }
+
+        // Persistence
+        function saveRecords() { localStorage.setItem(RECORDS_KEY, JSON.stringify(records)); }
+        function saveInputDefs() { localStorage.setItem(INPUTS_KEY, JSON.stringify(inputDefs)); }
+
+        // Load all data
+        function loadAll() {
             try {
-                const response = await fetch('https://open.er-api.com/v6/latest/JPY');
-                const data = await response.json();
-                if (data.result === 'success') {
-                    jpyToMyrRate = data.rates.MYR;
-                    const lastUpdated = new Date(data.time_last_update_utc).toLocaleString();
-                    rateElement.textContent = `1 JPY = ${jpyToMyrRate.toFixed(4)} MYR (Last Updated: ${lastUpdated})`;
-                    updateConvertedTotals(); // Update converted totals when rate changes
-                } else {
-                    rateElement.textContent = 'Failed to load exchange rate';
+                const storedInputs = localStorage.getItem(INPUTS_KEY);
+                if (storedInputs) inputDefs = JSON.parse(storedInputs);
+                if (inputDefs.length === 0) {
+                    inputDefs = [
+                        { id: 1, title: "Input 1", color: getColorForIndex(0) },
+                        { id: 2, title: "Input 2", color: getColorForIndex(1) }
+                    ];
+                    saveInputDefs();
                 }
-            } catch (error) {
-                rateElement.textContent = 'Error loading exchange rate';
-                console.error('Exchange rate fetch error:', error);
+                inputDefs.forEach(def => {
+                    if (!chartViews[def.id]) chartViews[def.id] = "daily";
+                    if (!chartOffsets[def.id]) chartOffsets[def.id] = { daily: 0, monthly: 0, yearly: 0 };
+                });
+
+                const storedRecords = localStorage.getItem(RECORDS_KEY);
+                if (storedRecords) {
+                    records = JSON.parse(storedRecords);
+                    records.forEach(rec => {
+                        if (!rec.inputId) rec.inputId = 1;
+                        if (!rec.remark) rec.remark = "";
+                        if (!rec.isoDate && rec.datetime) {
+                            const match = rec.datetime.match(/(\d{4})-(\d{2})-(\d{2})/);
+                            rec.isoDate = match ? match[0] : getLocalDateString(new Date());
+                        }
+                        if (!rec.isoDate) rec.isoDate = getLocalDateString(new Date());
+                        if (!rec.isoDatetime) {
+                            const date = new Date(rec.datetime);
+                            if (isNaN(date.getTime())) {
+                                rec.isoDatetime = rec.isoDate + 'T00:00';
+                            } else {
+                                rec.isoDatetime = date.toISOString().slice(0, 16);
+                            }
+                        }
+                    });
+                    saveRecords();
+                }
+                loadMainTitle();
+                renderAll();
+            } catch (e) { console.error('Error in loadAll:', e); }
+        }
+
+        // Render all
+        function renderAll() {
+            renderInputSections();
+            renderAllCharts();
+            renderHistory();
+        }
+
+        // Render input sections
+        function renderInputSections() {
+            const container = document.getElementById('input-sections');
+            container.innerHTML = '';
+            inputDefs.forEach(def => {
+                const section = document.createElement('div');
+                section.className = 'input-section';
+                section.setAttribute('data-input-id', def.id);
+                section.style.borderLeftColor = def.color;
+                section.innerHTML = `
+                    <h2>
+                        <span class="input-title" onclick="editInputTitle(${def.id})">${def.title}</span>
+                        <button class="input-title-edit" onclick="editInputTitle(${def.id})">Edit Title</button>
+                        <button class="delete-btn" onclick="deleteInput(${def.id})" style="margin-left:10px;">Delete Input</button>
+                    </h2>
+                    <div class="input-group">
+                        <label for="input-${def.id}">Enter a number:</label>
+                        <input type="number" id="input-${def.id}" step="any" placeholder="Enter value">
+                        <button onclick="submitInput(${def.id})">Submit</button>
+                        <p><small>Records will be auto-saved. Each submission adds a new history bar.</small></p>
+                    </div>
+                `;
+                container.appendChild(section);
+                const inputElem = document.getElementById(`input-${def.id}`);
+                if (inputElem) {
+                    inputElem.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') submitInput(def.id);
+                    });
+                }
+            });
+        }
+
+        // Render all charts
+        function renderAllCharts() {
+            const container = document.getElementById('charts-container');
+            container.innerHTML = '';
+            charts = {};
+            inputDefs.forEach(def => {
+                const section = document.createElement('div');
+                section.className = 'chart-section';
+                section.setAttribute('data-input-id', def.id);
+                const viewLabel = chartViews[def.id] === 'monthly' ? 'Monthly' : chartViews[def.id] === 'yearly' ? 'Yearly' : 'Daily';
+                section.innerHTML = `
+                    <h2>${def.title} ${viewLabel} Accumulated Bar Graph</h2>
+                    <div class="chart-controls">
+                        <button class="daily-btn" onclick="switchChartView(${def.id}, 'daily')">Daily View</button>
+                        <button class="monthly-btn" onclick="switchChartView(${def.id}, 'monthly')">Monthly View</button>
+                        <button class="yearly-btn" onclick="switchChartView(${def.id}, 'yearly')">Yearly View</button>
+                        <button class="jump-btn" onclick="showJumpToDate(${def.id})">Jump to Date</button>
+                    </div>
+                    <div class="chart-container" id="chart-container-${def.id}">
+                        <button class="chart-nav left" onclick="navigateChart(${def.id}, 1)">←</button>
+                        <canvas id="chart-${def.id}"></canvas>
+                        <button class="chart-nav right" onclick="navigateChart(${def.id}, -1)">→</button>
+                    </div>
+                `;
+                container.appendChild(section);
+                renderChart(def.id);
+                const chartContainer = section.querySelector(`#chart-container-${def.id}`);
+                if (chartContainer) addDragNavigation(chartContainer, def.id);
+            });
+        }
+
+        // Navigate chart (reversed direction: left=1, right=-1)
+        function navigateChart(inputId, direction) {
+            const view = chartViews[inputId] || 'daily';
+            const visibleCount = view === 'daily' ? VISIBLE_DAILY : view === 'monthly' ? VISIBLE_MONTHLY : VISIBLE_YEARLY;
+            if (!chartOffsets[inputId]) chartOffsets[inputId] = { daily: 0, monthly: 0, yearly: 0 };
+            const currentOffset = chartOffsets[inputId][view];
+            const newOffset = currentOffset + direction;
+            const inputRecords = records.filter(r => r.inputId === inputId);
+            if (inputRecords.length === 0) return;
+            let totalPeriods = 0;
+            if (view === 'daily') {
+                const dates = inputRecords.map(r => r.isoDate).sort();
+                const minDate = new Date(dates[0]);
+                const maxDate = new Date(dates[dates.length - 1]);
+                const diffTime = maxDate - minDate;
+                totalPeriods = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            } else if (view === 'monthly') {
+                const monthNums = inputRecords.map(r => {
+                    const monthStr = r.isoDate.substring(0, 7);
+                    const [year, month] = monthStr.split('-').map(Number);
+                    return year * 100 + month;
+                }).sort((a, b) => a - b);
+                if (monthNums.length > 0) {
+                    const minMonthNum = monthNums[0];
+                    const maxMonthNum = monthNums[monthNums.length - 1];
+                    totalPeriods = maxMonthNum - minMonthNum + 1;
+                }
+            } else if (view === 'yearly') {
+                const years = inputRecords.map(r => parseInt(r.isoDate.substring(0, 4))).sort((a, b) => a - b);
+                if (years.length > 0) {
+                    totalPeriods = years[years.length - 1] - years[0] + 1;
+                }
+            }
+            const maxOffset = Math.max(0, totalPeriods - visibleCount);
+            if (newOffset < 0 || newOffset > maxOffset) return;
+            chartOffsets[inputId][view] = newOffset;
+            renderChart(inputId);
+        }
+
+        // Drag navigation (reversed direction)
+        function addDragNavigation(element, inputId) {
+            let isDragging = false;
+            let startX = 0;
+            const threshold = 50;
+            element.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                e.preventDefault();
+            });
+            element.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+            });
+            element.addEventListener('mouseup', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                const diff = e.clientX - startX;
+                if (Math.abs(diff) > threshold) {
+                    if (diff > 0) {
+                        navigateChart(inputId, 1);  // Dragged right → forward
+                    } else {
+                        navigateChart(inputId, -1); // Dragged left → backward
+                    }
+                }
+            });
+            element.addEventListener('mouseleave', () => { isDragging = false; });
+            element.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                startX = e.touches[0].clientX;
+            });
+            element.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+            });
+            element.addEventListener('touchend', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                const diff = e.changedTouches[0].clientX - startX;
+                if (Math.abs(diff) > threshold) {
+                    if (diff > 0) {
+                        navigateChart(inputId, 1);  // Swiped right → forward
+                    } else {
+                        navigateChart(inputId, -1); // Swiped left → backward
+                    }
+                }
+            });
+        }
+
+        // Switch chart view
+        function switchChartView(inputId, view) {
+            chartViews[inputId] = view;
+            if (!chartOffsets[inputId]) chartOffsets[inputId] = { daily: 0, monthly: 0, yearly: 0 };
+            chartOffsets[inputId][view] = 0;
+            renderChart(inputId);
+            const chartSection = document.getElementById(`chart-${inputId}`).closest('.chart-section');
+            const h2 = chartSection.querySelector('h2');
+            const def = inputDefs.find(d => d.id === inputId);
+            const viewLabel = view === 'monthly' ? 'Monthly' : view === 'yearly' ? 'Yearly' : 'Daily';
+            h2.textContent = `${def.title} ${viewLabel} Accumulated Bar Graph`;
+        }
+
+        // Render chart with gap-filling
+        function renderChart(inputId) {
+            try {
+                const canvasId = `chart-${inputId}`;
+                const ctx = document.getElementById(canvasId).getContext('2d');
+                const inputRecords = records.filter(r => r.inputId === inputId);
+                const view = chartViews[inputId] || 'daily';
+                const visibleCount = view === 'daily' ? VISIBLE_DAILY : view === 'monthly' ? VISIBLE_MONTHLY : VISIBLE_YEARLY;
+                const offset = (chartOffsets[inputId] && chartOffsets[inputId][view]) || 0;
+                let allLabels = [];
+                let allData = [];
+                if (inputRecords.length > 0) {
+                    if (view === 'daily') {
+                        const grouped = {};
+                        inputRecords.forEach(record => {
+                            const date = record.isoDate;
+                            grouped[date] = (grouped[date] || 0) + record.value;
+                        });
+                        const dates = inputRecords.map(r => r.isoDate).sort();
+                        const minDate = new Date(dates[0]);
+                        const maxDate = new Date(dates[dates.length - 1]);
+                        let current = new Date(minDate);
+                        while (current <= maxDate) {
+                            const dateStr = getLocalDateString(current);
+                            allLabels.push(dateStr);
+                            allData.push(grouped[dateStr] || 0);
+                            current.setDate(current.getDate() + 1);
+                        }
+                    } else if (view === 'monthly') {
+                        const grouped = {};
+                        inputRecords.forEach(record => {
+                            const month = record.isoDate.substring(0, 7);
+                            grouped[month] = (grouped[month] || 0) + record.value;
+                        });
+                        const monthNums = inputRecords.map(r => {
+                            const monthStr = r.isoDate.substring(0, 7);
+                            const [year, month] = monthStr.split('-').map(Number);
+                            return year * 100 + month;
+                        }).sort((a, b) => a - b);
+                        if (monthNums.length > 0) {
+                            const minMonthNum = monthNums[0];
+                            const maxMonthNum = monthNums[monthNums.length - 1];
+                            const minYear = Math.floor(minMonthNum / 100);
+                            const minMonth = (minMonthNum % 100) - 1;
+                            const maxYear = Math.floor(maxMonthNum / 100);
+                            const maxMonth = (maxMonthNum % 100) - 1;
+                            let current = new Date(minYear, minMonth, 1);
+                            const end = new Date(maxYear, maxMonth, 1);
+                            while (current <= end) {
+                                const y = current.getFullYear();
+                                const m = String(current.getMonth() + 1).padStart(2, '0');
+                                const monthStr = `${y}-${m}`;
+                                allLabels.push(monthStr);
+                                allData.push(grouped[monthStr] || 0);
+                                current.setMonth(current.getMonth() + 1);
+                            }
+                        }
+                    } else if (view === 'yearly') {
+                        const grouped = {};
+                        inputRecords.forEach(record => {
+                            const year = record.isoDate.substring(0, 4);
+                            grouped[year] = (grouped[year] || 0) + record.value;
+                        });
+                        const years = inputRecords.map(r => parseInt(r.isoDate.substring(0, 4))).sort((a, b) => a - b);
+                        if (years.length > 0) {
+                            const minYear = years[0];
+                            const maxYear = years[years.length - 1];
+                            for (let y = minYear; y <= maxYear; y++) {
+                                const yearStr = String(y);
+                                allLabels.push(yearStr);
+                                allData.push(grouped[yearStr] || 0);
+                            }
+                        }
+                    }
+                }
+                const totalPeriods = allLabels.length;
+                let labels = [], data = [];
+                if (totalPeriods > 0) {
+                    if (totalPeriods <= visibleCount) {
+                        labels = allLabels;
+                        data = allData;
+                    } else {
+                        const startIdx = Math.max(0, totalPeriods - visibleCount - offset);
+                        const endIdx = Math.min(startIdx + visibleCount, totalPeriods);
+                        labels = allLabels.slice(startIdx, endIdx);
+                        data = allData.slice(startIdx, endIdx);
+                    }
+                }
+                if (charts[inputId]) charts[inputId].destroy();
+                const def = inputDefs.find(d => d.id === inputId);
+                const color = def ? def.color : '#007bff';
+                const viewLabel = view === 'monthly' ? 'Monthly' : view === 'yearly' ? 'Yearly' : 'Daily';
+                charts[inputId] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: `${def ? def.title : 'Input'} ${viewLabel} Accumulated Value`,
+                            data: data,
+                            backgroundColor: color + 'b3',
+                            borderColor: color,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: 'Total Value' } },
+                            x: { title: { display: true, text: view === 'monthly' ? 'Month' : view === 'yearly' ? 'Year' : 'Date' } }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: true
+                    }
+                });
+            } catch (e) { console.error('Error in renderChart:', e); }
+        }
+
+        // Render history (no Edit button, clickable value/remark)
+        function renderHistory() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            records.forEach(record => {
+                const def = inputDefs.find(d => d.id === record.inputId);
+                const inputTitle = def ? def.title : `Input ${record.inputId}`;
+                const bar = document.createElement('div');
+                bar.className = 'history-bar';
+                bar.style.borderLeftColor = def ? def.color : '#007bff';
+                bar.style.backgroundColor = def ? def.color + '1a' : '#e9f5ff';
+                bar.setAttribute('data-record-id', record.id);
+                const remarkHtml = record.remark 
+                    ? `<span class="remark" onclick="editRemark(${record.id})"> | Remark: ${record.remark}</span>` 
+                    : `<span class="remark-empty" onclick="editRemark(${record.id})"> | Remark: (click to add)</span>`;
+                bar.innerHTML = `
+                    <strong>${inputTitle}</strong> | 
+                    <span class="editable-datetime" onclick="editDateTime(${record.id})">${record.datetime}</span> | 
+                    Value: <strong><span class="editable-value" onclick="editRecord(${record.id})">${record.value}</span></strong>
+                    ${remarkHtml}
+                    <button class="delete-btn" onclick="deleteRecord(${record.id})">Delete</button>
+                `;
+                historyList.appendChild(bar);
+            });
+            if (records.length === 0) {
+                historyList.innerHTML = '<p>No records yet. Submit a value to add your first bar.</p>';
             }
         }
 
-        // Update converted totals for both users
-        function updateConvertedTotals() {
-            // User A: JPY total -> MYR
-            const aTotalJpy = userARecords.reduce((sum, r) => sum + r.value, 0);
-            const aTotalMyr = jpyToMyrRate > 0 ? (aTotalJpy * jpyToMyrRate).toFixed(2) : '0.00';
-            document.getElementById('a-total-myr').textContent = aTotalMyr;
-
-            // User B: MYR total -> JPY
-            const bTotalMyr = userBRecords.reduce((sum, r) => sum + r.value, 0);
-            const bTotalJpy = jpyToMyrRate > 0 ? (bTotalMyr / jpyToMyrRate).toFixed(2) : '0.00';
-            document.getElementById('b-total-jpy').textContent = bTotalJpy;
+        // Edit date/time
+        function editDateTime(id) {
+            const index = records.findIndex(r => r.id === id);
+            if (index === -1) return;
+            const record = records[index];
+            const bar = document.querySelector(`[data-record-id="${id}"]`);
+            if (!bar) return;
+            const datetimeSpan = bar.querySelector('.editable-datetime');
+            if (!datetimeSpan) return;
+            const picker = document.createElement('input');
+            picker.type = 'datetime-local';
+            picker.className = 'datetime-picker';
+            picker.value = record.isoDatetime;
+            picker.addEventListener('change', function() {
+                const newIsoDatetime = this.value;
+                if (!newIsoDatetime) return;
+                record.isoDatetime = newIsoDatetime;
+                record.datetime = new Date(newIsoDatetime).toLocaleString();
+                record.isoDate = newIsoDatetime.split('T')[0];
+                saveRecords();
+                renderHistory();
+                renderChart(record.inputId);
+            });
+            picker.addEventListener('blur', function() {
+                if (this.value === record.isoDatetime) renderHistory();
+            });
+            datetimeSpan.replaceWith(picker);
+            picker.focus();
         }
 
-        // Submit new record
-        function submitRecord(user) {
-            const valueId = user === 'A' ? 'a-value' : 'b-value';
-            const commentId = user === 'A' ? 'a-comment' : 'b-comment';
-            const valueInput = document.getElementById(valueId);
-            const commentInput = document.getElementById(commentId);
-            
-            const value = parseFloat(valueInput.value);
-            const comment = commentInput.value.trim();
+        // Edit remark
+        function editRemark(id) {
+            const index = records.findIndex(r => r.id === id);
+            if (index === -1) return;
+            const record = records[index];
+            const newRemark = prompt('Edit remark:', record.remark || '');
+            if (newRemark === null) return;
+            record.remark = newRemark.trim();
+            saveRecords();
+            renderHistory();
+        }
 
-            if (isNaN(value)) {
-                alert('Please enter a valid number for the value.');
+        // Edit record value
+        function editRecord(id) {
+            const index = records.findIndex(r => r.id === id);
+            if (index === -1) return;
+            const record = records[index];
+            const newValueStr = prompt('Edit value:', record.value);
+            if (newValueStr === null) return;
+            const newValue = parseFloat(newValueStr);
+            if (isNaN(newValue)) {
+                alert('Invalid number.');
                 return;
             }
+            record.value = newValue;
+            saveRecords();
+            renderHistory();
+            renderChart(record.inputId);
+        }
 
+        // Delete record
+        function deleteRecord(id) {
+            if (!confirm('Are you sure you want to delete this record?')) return;
+            records = records.filter(r => r.id !== id);
+            saveRecords();
+            renderHistory();
+            renderAllCharts();
+        }
+
+        // Delete input
+        function deleteInput(inputId) {
+            if (!confirm('Are you sure you want to delete this input? All associated records and charts will be permanently deleted.')) return;
+            inputDefs = inputDefs.filter(def => def.id !== inputId);
+            records = records.filter(rec => rec.inputId !== inputId);
+            if (charts[inputId]) { charts[inputId].destroy(); delete charts[inputId]; }
+            delete chartViews[inputId];
+            delete chartOffsets[inputId];
+            saveInputDefs();
+            saveRecords();
+            renderAll();
+        }
+
+        // Add new input
+        function addInput() {
+            const newId = generateInputId();
+            const colorIndex = inputDefs.length;
+            const newInput = { id: newId, title: `Input ${newId}`, color: getColorForIndex(colorIndex) };
+            inputDefs.push(newInput);
+            chartViews[newId] = 'daily';
+            chartOffsets[newId] = { daily: 0, monthly: 0, yearly: 0 };
+            saveInputDefs();
+            renderAll();
+        }
+
+        // Edit input title
+        function editInputTitle(inputId) {
+            const def = inputDefs.find(d => d.id === inputId);
+            if (!def) return;
+            const newTitle = prompt('Enter new title for this input:', def.title);
+            if (newTitle === null || newTitle.trim() === '') return;
+            def.title = newTitle.trim();
+            saveInputDefs();
+            renderAll();
+        }
+
+        // Submit input
+        function submitInput(inputId) {
+            const inputElem = document.getElementById(`input-${inputId}`);
+            if (!inputElem) return;
+            const value = parseFloat(inputElem.value);
+            if (isNaN(value)) {
+                alert('Please enter a valid number.');
+                return;
+            }
             const now = new Date();
             const record = {
                 id: now.getTime(),
-                date: now.toLocaleString(),
-                isoDate: now.toISOString(),
+                inputId: inputId,
+                datetime: now.toLocaleString(),
+                isoDate: getLocalDateString(now),
+                isoDatetime: now.toISOString().slice(0, 16),
                 value: value,
-                comment: comment
+                remark: ''
             };
-
-            if (user === 'A') {
-                userARecords.push(record);
-                saveRecords('A');
-                renderRecords('A');
-            } else {
-                userBRecords.push(record);
-                saveRecords('B');
-                renderRecords('B');
-            }
-
-            updateTotals();
-            // Clear inputs
-            valueInput.value = '';
-            commentInput.value = '';
+            records.unshift(record);
+            saveRecords();
+            renderHistory();
+            renderChart(inputId);
+            inputElem.value = '';
         }
 
-        // Render records for a user
-        function renderRecords(user) {
-            const containerId = user === 'A' ? 'a-records' : 'b-records';
-            const container = document.getElementById(containerId);
-            const records = user === 'A' ? userARecords : userBRecords;
-            const currency = user === 'A' ? 'JPY' : 'MYR';
-
-            container.innerHTML = '';
-
-            if (records.length === 0) {
-                container.innerHTML = '<p>No records yet.</p>';
-                return;
-            }
-
-            // Sort records ascending by isoDate (oldest first) to calculate accumulated
-            const sortedAsc = [...records].sort((a, b) => new Date(a.isoDate) - new Date(b.isoDate));
-            let runningTotal = 0;
-            const recordsWithAccumulated = sortedAsc.map(rec => {
-                runningTotal += rec.value;
-                return { ...rec, accumulated: runningTotal };
-            });
-
-            // Reverse to display newest first
-            const displayRecords = recordsWithAccumulated.reverse();
-
-            displayRecords.forEach(rec => {
-                const recDiv = document.createElement('div');
-                recDiv.className = 'record-line';
-                recDiv.setAttribute('data-record-id', rec.id);
-
-                // Date field (editable, click to show datetime picker)
-                const dateDiv = document.createElement('div');
-                dateDiv.className = 'rec-date editable-field';
-                dateDiv.setAttribute('data-record-id', rec.id);
-                dateDiv.setAttribute('data-field-type', 'date');
-                dateDiv.textContent = rec.date;
-                dateDiv.onclick = () => startEditField(user, rec.id, 'date', dateDiv);
-
-                // Value field (editable, click to show number input)
-                const valueDiv = document.createElement('div');
-                valueDiv.className = 'rec-value editable-field';
-                valueDiv.setAttribute('data-record-id', rec.id);
-                valueDiv.setAttribute('data-field-type', 'value');
-                valueDiv.textContent = `${rec.value.toFixed(2)} ${currency}`;
-                valueDiv.onclick = () => startEditField(user, rec.id, 'value', valueDiv);
-
-                // Comment field (editable, click to show text input)
-                const commentDiv = document.createElement('div');
-                commentDiv.className = 'rec-comment editable-field';
-                commentDiv.setAttribute('data-record-id', rec.id);
-                commentDiv.setAttribute('data-field-type', 'comment');
-                commentDiv.textContent = rec.comment || 'No comment';
-                commentDiv.onclick = () => startEditField(user, rec.id, 'comment', commentDiv);
-
-                // Accumulated field (not editable)
-                const accumulatedDiv = document.createElement('div');
-                accumulatedDiv.className = 'rec-accumulated';
-                accumulatedDiv.textContent = `Accumulated: ${rec.accumulated.toFixed(2)} ${currency}`;
-
-                // Delete button only (no Edit button)
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'rec-actions';
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.style.backgroundColor = '#dc3545';
-                deleteBtn.style.color = 'white';
-                deleteBtn.onclick = () => deleteRecord(user, rec.id);
-                actionsDiv.appendChild(deleteBtn);
-
-                // Append all fields to record line
-                recDiv.appendChild(dateDiv);
-                recDiv.appendChild(valueDiv);
-                recDiv.appendChild(commentDiv);
-                recDiv.appendChild(accumulatedDiv);
-                recDiv.appendChild(actionsDiv);
-
-                container.appendChild(recDiv);
-            });
+        // Jump to Date functions
+        function showJumpToDate(inputId) {
+            const chartSection = document.querySelector(`[data-input-id="${inputId}"] .chart-controls`);
+            if (!chartSection) return;
+            const existingPicker = chartSection.querySelector('.jump-picker');
+            if (existingPicker) existingPicker.remove();
+            const picker = document.createElement('input');
+            picker.type = 'datetime-local';
+            picker.className = 'jump-picker datetime-picker';
+            picker.onchange = function() {
+                const selected = this.value;
+                if (!selected) return;
+                jumpToSelectedDate(inputId, selected);
+                this.remove();
+            };
+            picker.onblur = function() { if (!this.value) this.remove(); };
+            chartSection.appendChild(picker);
+            picker.focus();
         }
 
-        // Start inline editing for a record field
-        function startEditField(user, recordId, fieldType, element) {
-            const records = user === 'A' ? userARecords : userBRecords;
-            const recordIndex = records.findIndex(r => r.id === recordId);
-            if (recordIndex === -1) return;
-            const rec = records[recordIndex];
-
-            let input;
-            if (fieldType === 'date') {
-                // Datetime-local input for date editing
-                input = document.createElement('input');
-                input.type = 'datetime-local';
-                input.className = 'edit-input';
-                input.value = rec.isoDate.slice(0, 16); // Format for datetime-local
-                input.onchange = () => saveEditedField(user, recordId, fieldType, input.value);
-                input.onblur = () => saveEditedField(user, recordId, fieldType, input.value);
-            } else if (fieldType === 'value') {
-                // Number input for value editing
-                input = document.createElement('input');
-                input.type = 'number';
-                input.className = 'edit-input';
-                input.step = 'any';
-                input.value = rec.value;
-                input.onchange = () => saveEditedField(user, recordId, fieldType, input.value);
-                input.onblur = () => saveEditedField(user, recordId, fieldType, input.value);
-            } else if (fieldType === 'comment') {
-                // Text input for comment editing
-                input = document.createElement('input');
-                input.type = 'text';
-                input.className = 'edit-input';
-                input.value = rec.comment || '';
-                input.onchange = () => saveEditedField(user, recordId, fieldType, input.value);
-                input.onblur = () => saveEditedField(user, recordId, fieldType, input.value);
+        function jumpToSelectedDate(inputId, selectedDatetime) {
+            const view = chartViews[inputId] || 'daily';
+            const visibleCount = view === 'daily' ? VISIBLE_DAILY : view === 'monthly' ? VISIBLE_MONTHLY : VISIBLE_YEARLY;
+            const inputRecords = records.filter(r => r.inputId === inputId);
+            if (inputRecords.length === 0) return;
+            let targetPeriod = '';
+            if (view === 'daily') {
+                const date = new Date(selectedDatetime);
+                if (isNaN(date.getTime())) return;
+                targetPeriod = getLocalDateString(date);
+            } else if (view === 'monthly') {
+                const date = new Date(selectedDatetime);
+                if (isNaN(date.getTime())) return;
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                targetPeriod = `${y}-${m}`;
+            } else if (view === 'yearly') {
+                const date = new Date(selectedDatetime);
+                if (isNaN(date.getTime())) return;
+                targetPeriod = String(date.getFullYear());
             }
-
-            // Replace the static element with the input
-            element.parentNode.replaceChild(input, element);
-            input.focus();
-        }
-
-        // Save edited field value
-        function saveEditedField(user, recordId, fieldType, newValue) {
-            const records = user === 'A' ? userARecords : userBRecords;
-            const recordIndex = records.findIndex(r => r.id === recordId);
-            if (recordIndex === -1) return;
-            const rec = records[recordIndex];
-
-            if (fieldType === 'date') {
-                const newDate = new Date(newValue);
-                if (isNaN(newDate.getTime())) {
-                    alert('Invalid date, no changes made.');
-                    renderRecords(user);
-                    return;
+            let allLabels = [];
+            if (view === 'daily') {
+                const grouped = {};
+                inputRecords.forEach(record => {
+                    const date = record.isoDate;
+                    grouped[date] = (grouped[date] || 0) + record.value;
+                });
+                const dates = inputRecords.map(r => r.isoDate).sort();
+                const minDate = new Date(dates[0]);
+                const maxDate = new Date(dates[dates.length - 1]);
+                let current = new Date(minDate);
+                while (current <= maxDate) {
+                    allLabels.push(getLocalDateString(current));
+                    current.setDate(current.getDate() + 1);
                 }
-                rec.isoDate = newDate.toISOString();
-                rec.date = newDate.toLocaleString();
-            } else if (fieldType === 'value') {
-                const newVal = parseFloat(newValue);
-                if (isNaN(newVal)) {
-                    alert('Invalid value, no changes made.');
-                    renderRecords(user);
-                    return;
+            } else if (view === 'monthly') {
+                const grouped = {};
+                inputRecords.forEach(record => {
+                    const month = record.isoDate.substring(0, 7);
+                    grouped[month] = (grouped[month] || 0) + record.value;
+                });
+                const monthNums = inputRecords.map(r => {
+                    const monthStr = r.isoDate.substring(0, 7);
+                    const [year, month] = monthStr.split('-').map(Number);
+                    return year * 100 + month;
+                }).sort((a, b) => a - b);
+                if (monthNums.length > 0) {
+                    const minMonthNum = monthNums[0];
+                    const maxMonthNum = monthNums[monthNums.length - 1];
+                    const minYear = Math.floor(minMonthNum / 100);
+                    const minMonth = (minMonthNum % 100) - 1;
+                    const maxYear = Math.floor(maxMonthNum / 100);
+                    const maxMonth = (maxMonthNum % 100) - 1;
+                    let current = new Date(minYear, minMonth, 1);
+                    const end = new Date(maxYear, maxMonth, 1);
+                    while (current <= end) {
+                        const y = current.getFullYear();
+                        const m = String(current.getMonth() + 1).padStart(2, '0');
+                        allLabels.push(`${y}-${m}`);
+                        current.setMonth(current.getMonth() + 1);
+                    }
                 }
-                rec.value = newVal;
-            } else if (fieldType === 'comment') {
-                rec.comment = newValue.trim();
+            } else if (view === 'yearly') {
+                const grouped = {};
+                inputRecords.forEach(record => {
+                    const year = record.isoDate.substring(0, 4);
+                    grouped[year] = (grouped[year] || 0) + record.value;
+                });
+                const years = inputRecords.map(r => parseInt(r.isoDate.substring(0, 4))).sort((a, b) => a - b);
+                if (years.length > 0) {
+                    const minYear = years[0];
+                    const maxYear = years[years.length - 1];
+                    for (let y = minYear; y <= maxYear; y++) {
+                        allLabels.push(String(y));
+                    }
+                }
             }
-
-            // Save and re-render
-            saveRecords(user);
-            renderRecords(user);
-            updateTotals();
+            const targetIdx = allLabels.indexOf(targetPeriod);
+            if (targetIdx === -1) { alert('Selected date not found in records.'); return; }
+            const totalPeriods = allLabels.length;
+            const maxOffset = Math.max(0, totalPeriods - visibleCount);
+            let newOffset = totalPeriods - visibleCount - targetIdx;
+            newOffset = Math.max(0, Math.min(newOffset, maxOffset));
+            if (!chartOffsets[inputId]) chartOffsets[inputId] = { daily: 0, monthly: 0, yearly: 0 };
+            chartOffsets[inputId][view] = newOffset;
+            renderChart(inputId);
         }
 
-        function renderAllRecords() {
-            renderRecords('A');
-            renderRecords('B');
-        }
+        window.onload = loadAll;
 
-        function deleteRecord(user, recordId) {
-            if (!confirm('Are you sure you want to delete this record? This action cannot be undone.')) return;
-            if (user === 'A') {
-                userARecords = userARecords.filter(r => r.id !== recordId);
-                saveRecords('A');
-                renderRecords('A');
-            } else {
-                userBRecords = userBRecords.filter(r => r.id !== recordId);
-                saveRecords('B');
-                renderRecords('B');
+        // Export to Excel
+        function exportToExcel() {
+            try {
+                const exportData = records.map(record => {
+                    const def = inputDefs.find(d => d.id === record.inputId);
+                    return {
+                        'Input ID': record.inputId,
+                        'Input Title': def ? def.title : `Input ${record.inputId}`,
+                        'Value': record.value,
+                        'Date/Time': record.datetime,
+                        'ISO Date': record.isoDate,
+                        'ISO DateTime': record.isoDatetime,
+                        'Remark': record.remark || ''
+                    };
+                });
+
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Records');
+                const fileName = `counter_data_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+            } catch (e) {
+                console.error('Error exporting to Excel:', e);
+                alert('Failed to export: ' + e.message);
             }
-            updateTotals();
         }
 
-        // Update total display and converted totals
-        function updateTotals() {
-            const aTotal = userARecords.reduce((sum, r) => sum + r.value, 0);
-            document.getElementById('a-total').textContent = aTotal.toFixed(2);
-            const bTotal = userBRecords.reduce((sum, r) => sum + r.value, 0);
-            document.getElementById('b-total').textContent = bTotal.toFixed(2);
-            updateConvertedTotals(); // Update converted totals whenever main totals change
+
+        // Import from Excel
+        function importFromExcel(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheet];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    const importedRecords = jsonData.map((item, index) => ({
+                        id: Date.now() + index,
+                        inputId: parseInt(item['Input ID']) || 1,
+                        value: parseFloat(item['Value']) || 0,
+                        datetime: item['Date/Time'] || new Date().toLocaleString(),
+                        isoDate: item['ISO Date'] || getLocalDateString(new Date()),
+                        isoDatetime: item['ISO DateTime'] || new Date().toISOString().slice(0, 16),
+                        remark: item['Remark'] || ''
+                    }));
+
+                    records = importedRecords;
+                    saveRecords();
+                    renderAll();
+                    alert(`Successfully imported ${importedRecords.length} records!`);
+                    input.value = '';
+                } catch (e) {
+                    console.error('Error importing from Excel:', e);
+                    alert('Failed to import: ' + e.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
         }
+
     </script>
 </body>
 </html>
